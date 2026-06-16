@@ -58,7 +58,26 @@ const stats = [
   { value: "USA", label: "Headquartered & operated" },
 ];
 
+const emailSchema = z.string().trim().email({ message: "Please enter a valid email" }).max(255);
+
 function Index() {
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const result = emailSchema.safeParse(email);
+    if (!result.success) {
+      setError(result.error.issues[0]?.message ?? "Invalid email");
+      return;
+    }
+    setError(null);
+    setSubmitting(true);
+    navigate({ to: "/thank-you", search: { email: result.data } });
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Nav */}
