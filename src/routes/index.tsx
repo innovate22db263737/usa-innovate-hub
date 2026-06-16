@@ -1,5 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { ArrowRight, Radio, Cpu, Building2, Sparkles, Globe2, LineChart } from "lucide-react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { ArrowRight, Radio, Cpu, Building2, Sparkles, Globe2, LineChart, Mail } from "lucide-react";
+import { useState } from "react";
+import { z } from "zod";
 import heroImage from "@/assets/hero-innovate22.jpg";
 
 export const Route = createFileRoute("/")({
