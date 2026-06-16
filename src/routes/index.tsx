@@ -210,7 +210,7 @@ function Index() {
         </div>
       </section>
 
-      {/* CTA */}
+      {/* CTA / Lead capture */}
       <section id="contact" className="py-24">
         <div className="container mx-auto max-w-4xl px-6">
           <div className="relative overflow-hidden rounded-3xl border border-border p-12 md:p-16 text-center bg-card">
@@ -218,14 +218,41 @@ function Index() {
             <div className="relative">
               <h2 className="text-4xl md:text-5xl font-bold text-gradient">Let's build what's next.</h2>
               <p className="mt-5 text-muted-foreground text-lg max-w-xl mx-auto">
-                Tell us about the problem. We'll come back within 48 hours with whether — and how — we can help.
+                Drop your email. We'll come back within 48 hours with whether — and how — we can help.
               </p>
-              <a
-                href="mailto:hello@innovate22.com"
-                className="mt-8 inline-flex items-center gap-2 px-7 py-3.5 rounded-full bg-gradient-primary text-primary-foreground font-medium shadow-elegant hover:scale-[1.02] transition-transform"
+              <form
+                onSubmit={handleSubmit}
+                className="mt-8 mx-auto max-w-xl flex flex-col sm:flex-row gap-3"
+                noValidate
               >
-                hello@innovate22.com <ArrowRight className="h-4 w-4" />
-              </a>
+                <label htmlFor="lead-email" className="sr-only">Work email</label>
+                <div className="relative flex-1">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <input
+                    id="lead-email"
+                    type="email"
+                    required
+                    placeholder="you@company.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    maxLength={255}
+                    className="w-full pl-11 pr-4 py-3.5 rounded-full bg-background/80 border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 transition text-foreground placeholder:text-muted-foreground"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full bg-gradient-primary text-primary-foreground font-medium shadow-elegant hover:scale-[1.02] transition-transform disabled:opacity-60 disabled:hover:scale-100"
+                >
+                  Get in touch <ArrowRight className="h-4 w-4" />
+                </button>
+              </form>
+              {error && (
+                <p className="mt-3 text-sm text-destructive" role="alert">{error}</p>
+              )}
+              <p className="mt-4 text-xs text-muted-foreground">
+                Or email us directly at <a href="mailto:hello@innovate22.com" className="underline hover:text-foreground">hello@innovate22.com</a>
+              </p>
             </div>
           </div>
         </div>
