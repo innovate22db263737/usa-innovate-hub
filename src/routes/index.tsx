@@ -59,24 +59,63 @@ const stats = [
   { value: "USA", label: "Headquartered & operated" },
 ];
 
-const emailSchema = z.string().trim().email({ message: "Please enter a valid email" }).max(255);
+const leadSchema = z.object({
+  name: z.string().trim().min(1, { message: "Please enter your name" }).max(200),
+  email: z.string().trim().email({ message: "Please enter a valid email" }).max(255),
+  company: z.string().trim().max(200).optional(),
+  phone: z.string().trim().max(50).optional(),
+  message: z.string().trim().max(2000).optional(),
+});
+
+const initialForm = { name: "", email: "", company: "", phone: "", message: "", website: "" };
 
 function Index() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
+  const [form, setForm] = useState(initialForm);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const onChange = (field: keyof typeof initialForm) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+      setForm((f) => ({ ...f, [field]: e.target.value }));
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const result = emailSchema.safeParse(email);
-    if (!result.success) {
-      setError(result.error.issues[0]?.message ?? "Invalid email");
+    setError(null);
+
+    const parsed = leadSchema.safeParse({
+      name: form.name,
+      email: form.email,
+      company: form.company || undefined,
+      phone: form.phone || undefined,
+      message: form.message || undefined,
+    });
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? "Please check the form");
       return;
     }
-    setError(null);
+
     setSubmitting(true);
-    navigate({ to: "/thank-you", search: { email: result.data } });
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke("submit-lead", {
+        body: { ...parsed.data, website: form.website, source: "website" },
+      });
+      if (invokeError) throw invokeError;
+      if (!data?.ok) throw new Error(data?.error || "Submission failed");
+
+      setSuccess(true);
+      const submittedEmail = parsed.data.email;
+      setForm(initialForm);
+      setTimeout(() => {
+        navigate({ to: "/thank-you", search: { email: submittedEmail } });
+      }, 1200);
+    } catch (err) {
+      console.error("submit-lead failed:", err);
+      setError("Something went wrong. Please try again or email us directly.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
