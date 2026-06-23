@@ -1,7 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ArrowRight, Radio, Cpu, Building2, Sparkles, Globe2, LineChart, Mail } from "lucide-react";
+import { ArrowRight, Radio, Cpu, Building2, Sparkles, Globe2, LineChart, CheckCircle2 } from "lucide-react";
 import { useState } from "react";
 import { z } from "zod";
+import { supabase } from "@/integrations/supabase/client";
 import heroImage from "@/assets/hero-innovate22.jpg";
 
 export const Route = createFileRoute("/")({
@@ -58,24 +59,63 @@ const stats = [
   { value: "USA", label: "Headquartered & operated" },
 ];
 
-const emailSchema = z.string().trim().email({ message: "Please enter a valid email" }).max(255);
+const leadSchema = z.object({
+  name: z.string().trim().min(1, { message: "Please enter your name" }).max(200),
+  email: z.string().trim().email({ message: "Please enter a valid email" }).max(255),
+  company: z.string().trim().max(200).optional(),
+  phone: z.string().trim().max(50).optional(),
+  message: z.string().trim().max(2000).optional(),
+});
+
+const initialForm = { name: "", email: "", company: "", phone: "", message: "", website: "" };
 
 function Index() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
+  const [form, setForm] = useState(initialForm);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const onChange = (field: keyof typeof initialForm) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+      setForm((f) => ({ ...f, [field]: e.target.value }));
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const result = emailSchema.safeParse(email);
-    if (!result.success) {
-      setError(result.error.issues[0]?.message ?? "Invalid email");
+    setError(null);
+
+    const parsed = leadSchema.safeParse({
+      name: form.name,
+      email: form.email,
+      company: form.company || undefined,
+      phone: form.phone || undefined,
+      message: form.message || undefined,
+    });
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? "Please check the form");
       return;
     }
-    setError(null);
+
     setSubmitting(true);
-    navigate({ to: "/thank-you", search: { email: result.data } });
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke("submit-lead", {
+        body: { ...parsed.data, website: form.website, source: "website" },
+      });
+      if (invokeError) throw invokeError;
+      if (!data?.ok) throw new Error(data?.error || "Submission failed");
+
+      setSuccess(true);
+      const submittedEmail = parsed.data.email;
+      setForm(initialForm);
+      setTimeout(() => {
+        navigate({ to: "/thank-you", search: { email: submittedEmail } });
+      }, 1200);
+    } catch (err) {
+      console.error("submit-lead failed:", err);
+      setError("Something went wrong. Please try again or email us directly.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -218,39 +258,101 @@ function Index() {
             <div className="relative">
               <h2 className="text-4xl md:text-5xl font-bold text-gradient">Let's build what's next.</h2>
               <p className="mt-5 text-muted-foreground text-lg max-w-xl mx-auto">
-                Drop your email. We'll come back within 48 hours with whether — and how — we can help.
+                Tell us a bit about you. We'll come back within 48 hours with whether — and how — we can help.
               </p>
-              <form
-                onSubmit={handleSubmit}
-                className="mt-8 mx-auto max-w-xl flex flex-col sm:flex-row gap-3"
-                noValidate
-              >
-                <label htmlFor="lead-email" className="sr-only">Work email</label>
-                <div className="relative flex-1">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <input
-                    id="lead-email"
-                    type="email"
-                    required
-                    placeholder="you@company.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    maxLength={255}
-                    className="w-full pl-11 pr-4 py-3.5 rounded-full bg-background/80 border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 transition text-foreground placeholder:text-muted-foreground"
-                  />
+
+              {success ? (
+                <div className="mt-8 mx-auto max-w-xl rounded-2xl border border-border bg-background/60 p-6 flex items-center gap-3 justify-center">
+                  <CheckCircle2 className="h-5 w-5 text-primary-glow" />
+                  <p className="text-foreground">Thanks — we've got it. Redirecting…</p>
                 </div>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full bg-gradient-primary text-primary-foreground font-medium shadow-elegant hover:scale-[1.02] transition-transform disabled:opacity-60 disabled:hover:scale-100"
+              ) : (
+                <form
+                  onSubmit={handleSubmit}
+                  className="mt-8 mx-auto max-w-xl grid gap-3 text-left"
+                  noValidate
                 >
-                  Get in touch <ArrowRight className="h-4 w-4" />
-                </button>
-              </form>
-              {error && (
-                <p className="mt-3 text-sm text-destructive" role="alert">{error}</p>
+                  {/* Honeypot — hidden from real users, bots will fill it */}
+                  <div className="absolute -left-[9999px] top-auto h-0 w-0 overflow-hidden" aria-hidden="true">
+                    <label htmlFor="website">Website</label>
+                    <input
+                      id="website"
+                      name="website"
+                      type="text"
+                      tabIndex={-1}
+                      autoComplete="off"
+                      value={form.website}
+                      onChange={onChange("website")}
+                    />
+                  </div>
+
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      required
+                      placeholder="Your name *"
+                      value={form.name}
+                      onChange={onChange("name")}
+                      maxLength={200}
+                      disabled={submitting}
+                      className="w-full px-4 py-3 rounded-xl bg-background/80 border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 transition text-foreground placeholder:text-muted-foreground disabled:opacity-60"
+                    />
+                    <input
+                      type="email"
+                      required
+                      placeholder="Work email *"
+                      value={form.email}
+                      onChange={onChange("email")}
+                      maxLength={255}
+                      disabled={submitting}
+                      className="w-full px-4 py-3 rounded-xl bg-background/80 border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 transition text-foreground placeholder:text-muted-foreground disabled:opacity-60"
+                    />
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      placeholder="Company"
+                      value={form.company}
+                      onChange={onChange("company")}
+                      maxLength={200}
+                      disabled={submitting}
+                      className="w-full px-4 py-3 rounded-xl bg-background/80 border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 transition text-foreground placeholder:text-muted-foreground disabled:opacity-60"
+                    />
+                    <input
+                      type="tel"
+                      placeholder="Phone"
+                      value={form.phone}
+                      onChange={onChange("phone")}
+                      maxLength={50}
+                      disabled={submitting}
+                      className="w-full px-4 py-3 rounded-xl bg-background/80 border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 transition text-foreground placeholder:text-muted-foreground disabled:opacity-60"
+                    />
+                  </div>
+                  <textarea
+                    placeholder="What are you trying to solve? (optional)"
+                    value={form.message}
+                    onChange={onChange("message")}
+                    maxLength={2000}
+                    rows={3}
+                    disabled={submitting}
+                    className="w-full px-4 py-3 rounded-xl bg-background/80 border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 transition text-foreground placeholder:text-muted-foreground disabled:opacity-60 resize-none"
+                  />
+
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="mt-1 inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full bg-gradient-primary text-primary-foreground font-medium shadow-elegant hover:scale-[1.02] transition-transform disabled:opacity-60 disabled:hover:scale-100"
+                  >
+                    {submitting ? "Sending…" : (<>Get in touch <ArrowRight className="h-4 w-4" /></>)}
+                  </button>
+
+                  {error && (
+                    <p className="text-sm text-destructive text-center" role="alert">{error}</p>
+                  )}
+                </form>
               )}
-              <p className="mt-4 text-xs text-muted-foreground">
+
+              <p className="mt-6 text-xs text-muted-foreground">
                 Or email us directly at <a href="mailto:hello@innovate22.com" className="underline hover:text-foreground">hello@innovate22.com</a>
               </p>
             </div>
