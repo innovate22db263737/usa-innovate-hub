@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ArrowRight, Radio, Cpu, Building2, Sparkles, Globe2, LineChart, CheckCircle2 } from "lucide-react";
 import { useState } from "react";
 import { z } from "zod";
-import { supabase } from "@/integrations/supabase/client";
+import { supabasePublic } from "@/lib/supabase-public";
 import heroImage from "@/assets/hero-innovate22.jpg";
 
 export const Route = createFileRoute("/")({
@@ -98,7 +98,7 @@ function Index() {
 
     setSubmitting(true);
     try {
-      const { data, error: invokeError } = await supabase.functions.invoke("submit-lead", {
+      const { data, error: invokeError } = await supabasePublic.functions.invoke("submit-lead", {
         body: { ...parsed.data, website: form.website, source: "website" },
       });
       if (invokeError) throw invokeError;
