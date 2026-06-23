@@ -98,7 +98,7 @@ function Index() {
 
     setSubmitting(true);
     try {
-      const { data, error: invokeError } = await supabase.functions.invoke("submit-lead", {
+      const { data, error: invokeError } = await supabasePublic.functions.invoke("submit-lead", {
         body: { ...parsed.data, website: form.website, source: "website" },
       });
       if (invokeError) throw invokeError;
